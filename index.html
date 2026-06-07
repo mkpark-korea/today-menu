@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="오늘 메뉴">
+<meta name="theme-color" content="#ffffff">
+<title>오늘 메뉴</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "Noto Sans KR", sans-serif;
+  background: #fafafa; color: #111;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  overflow-x: hidden;
+}
+.loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100vh; font-size: 15px; color: #999; gap: 12px;
+}
+.loading-dot { font-size: 24px; animation: blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 24px 0 12px;
+  border-bottom: 1px solid #e8e8e8;
+  position: sticky; top: 0; background: #fafafa; z-index: 10;
+  width: 88%; max-width: 480px;
+}
+.header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+.header button {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; color: #888; padding: 0; font-family: inherit;
+}
+.date-nav {
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px 0 8px; gap: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  position: sticky; top: 57px; background: #fafafa; z-index: 9;
+  width: 88%; max-width: 480px;
+}
+.date-nav .date-label {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.3px;
+  flex: 1; text-align: center;
+}
+.today-badge {
+  font-size: 10px; color: #fff; background: #111;
+  padding: 2px 6px; border-radius: 4px; margin-left: 6px;
+}
+.nav-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; color: #888; padding: 4px 8px; font-family: inherit;
+}
+.nav-btn:disabled { color: #ddd; }
+.slider-outer {
+  width: 100vw; position: relative; left: 50%;
+  transform: translateX(-50%); overflow: hidden;
+}
+.slider { display: flex; transition: transform 0.3s ease; will-change: transform; }
+.slide { min-width: 100vw; display: flex; justify-content: center; align-items: flex-start; }
+.slide-inner { width: 88%; max-width: 480px; margin: 0 auto; padding-bottom: 40px; }
+.today-record {
+  background: #fff; border-radius: 10px; padding: 12px 14px;
+  margin: 16px 0 0; border: 1px solid #e0e0e0;
+}
+.today-record .lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; letter-spacing: 1px; }
+.today-record .row { font-size: 13px; color: #111; margin-bottom: 3px; font-weight: 500; }
+.today-record .row span { color: #bbb; margin-right: 6px; font-weight: 400; }
+.last-year {
+  background: #f5f5f5; border-radius: 10px; padding: 12px 14px;
+  margin: 12px 0 0; border: 1px solid #eaeaea;
+}
+.last-year .lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; letter-spacing: 1px; }
+.last-year .row { font-size: 13px; color: #555; margin-bottom: 3px; }
+.last-year .row span { color: #bbb; margin-right: 6px; }
+.card {
+  margin-top: 14px; padding: 14px 16px;
+  border: 1px solid #e0e0e0; border-radius: 10px;
+  background: #fff; transition: all 0.2s;
+}
+.card.confirmed { border: 1.5px solid #111; background: #f5f5f5; }
+.card .cat { font-size: 11px; color: #bbb; margin-bottom: 4px; letter-spacing: 0.5px; }
+.card .menu-name { font-size: 22px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+.card .info-row { font-size: 12px; margin-bottom: 4px; }
+.card .info-row .lbl { color: #999; }
+.card .info-row .val { margin-left: 8px; color: #333; }
+.card .info-row .val.none { color: #ccc; }
+.card .kurly-sides { font-size: 11px; color: #999; margin-top: 2px; padding-left: 32px; margin-bottom: 4px; }
+.card .saved { font-size: 12px; color: #888; margin-top: 8px; }
+.btn-row { display: flex; gap: 8px; margin-top: 10px; }
+.btn-re {
+  flex: 1; padding: 9px 0; background: none;
+  border: 1px solid #ccc; border-radius: 7px;
+  font-size: 14px; cursor: pointer; color: #555; font-family: inherit;
+}
+.btn-ok {
+  flex: 1; padding: 9px 0; background: #111; border: none;
+  border-radius: 7px; font-size: 14px; cursor: pointer;
+  color: #fff; font-weight: 600; font-family: inherit;
+}
+.my-choice { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+.my-choice .lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; letter-spacing: 0.5px; }
+.my-choice-row { display: flex; gap: 8px; }
+.my-choice-input {
+  flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 7px;
+  font-size: 14px; font-family: inherit; background: #fff; color: #111; outline: none;
+}
+.my-choice-input:focus { border-color: #aaa; }
+.my-choice-saved-text { font-size: 14px; color: #333; margin-bottom: 4px; }
+.my-choice-edit {
+  font-size: 12px; color: #aaa; background: none;
+  border: none; cursor: pointer; padding: 0; font-family: inherit;
+}
+.btn-save {
+  padding: 8px 14px; background: #111; border: none; border-radius: 7px;
+  font-size: 13px; cursor: pointer; color: #fff; font-family: inherit; white-space: nowrap;
+}
+.btn-primary {
+  margin-top: 14px; width: 100%; padding: 16px 0; background: #111; color: #fff;
+  border: none; border-radius: 10px; font-size: 16px; font-weight: 600;
+  cursor: pointer; letter-spacing: -0.3px; font-family: inherit;
+}
+.btn-secondary {
+  margin-top: 14px; width: 100%; padding: 13px 0; background: none;
+  color: #888; border: 1px solid #ddd; border-radius: 10px;
+  font-size: 14px; cursor: pointer; font-family: inherit;
+}
+.btn-reset {
+  margin-top: 24px; width: 100%; padding: 13px 0; background: none;
+  color: #ccc; border: 1px solid #eee; border-radius: 10px;
+  font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.history-wrap { width: 88%; max-width: 480px; padding-bottom: 40px; }
+/* 기록 저장/가져오기 한 줄 버튼 */
+.record-btn-row {
+  display: flex; gap: 8px; margin-top: 16px;
+}
+.btn-record {
+  flex: 1; padding: 13px 0; background: none; color: #888;
+  border: 1px solid #ddd; border-radius: 10px;
+  font-size: 14px; cursor: pointer; font-family: inherit; text-align: center;
+}
+.history-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #333; }
+.empty { margin-top: 40px; color: #bbb; text-align: center; font-size: 14px; }
+.import-msg { font-size: 13px; color: #888; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- 로딩 화면 -->
+<div class="loading" id="loadingView">
+  <div class="loading-dot">●</div>
+  <div>불러오는 중...</div>
+</div>
+
+<!-- 메인 앱 (로딩 완료 후 표시) -->
+<div id="appView" style="display:none; width:100%; flex-direction:column; align-items:center;">
+  <div class="header">
+    <h1>오늘 메뉴</h1>
+    <button id="viewToggle">기록 보기</button>
+  </div>
+  <div id="mainView" style="width:100%;display:flex;flex-direction:column;align-items:center;">
+    <div class="date-nav">
+      <button class="nav-btn" id="btnPrev">&#8249;</button>
+      <div class="date-label" id="dateLabel"></div>
+      <button class="nav-btn" id="btnNext">&#8250;</button>
+    </div>
+    <div class="slider-outer" id="sliderOuter">
+      <div class="slider" id="slider"></div>
+    </div>
+  </div>
+  <div id="historyView" style="display:none;width:100%;flex-direction:column;align-items:center;">
+    <div class="history-wrap">
+      <div id="historyList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "오늘메뉴_v1";
+const ACTUAL_KEY = "오늘메뉴_실제_v1";
+const TOTAL_DAYS = 15;
+const CENTER_IDX = 7;
+
+// 전역 데이터
+let KURLY_MAIN = {};
+let SIDE_DISHES = {};
+let SIDE_PAIRING = {};
+let MENUS = {};
+let ALL_MENUS = [];
+let NO_SIDE_CATEGORIES = [];
+let NO_SIDE_MENUS = [];
+let LAST_YEAR = {}; // 작년(2025) 데이터
+let THIS_YEAR = {}; // 올해(2026~) 데이터
+
+function loadHistory(){ try{ const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):[]; }catch{return[];} }
+function saveHistory(h){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(h)); }catch{} }
+function loadActual(){ try{ const r=localStorage.getItem(ACTUAL_KEY); return r?JSON.parse(r):{}; }catch{return {};} }
+function saveActual(a){ try{ localStorage.setItem(ACTUAL_KEY,JSON.stringify(a)); }catch{} }
+
+function getDateOffset(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d; }
+function toISO(d){ return d.toISOString().slice(0,10); }
+function toKey(d){ return String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0"); }
+function daysBetween(a,b){ return Math.abs((new Date(a)-new Date(b))/86400000); }
+
+function getLastYearRecord(d){
+  // 현재 날짜의 작년 동일 날짜 ISO
+  const lyISO = (d.getFullYear()-1)+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return LAST_YEAR[lyISO] || null;
+}
+
+function getLyLabel(d){
+  const lyDate = new Date(d.getFullYear()-1, d.getMonth(), d.getDate());
+  return lyDate.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
+}
+
+function getSides(menu){
+  if(NO_SIDE_CATEGORIES.includes(menu.category)) return [];
+  if(NO_SIDE_MENUS.includes(menu.name)) return [];
+  return (SIDE_PAIRING[menu.name]||[]).map(function(name){return {name:name,kurly:SIDE_DISHES[name]||null};});
+}
+
+function recommend(history,excludeName,excludeCategory,targetISO){
+  const recent5=history.slice(-5).map(function(h){return h.name;});
+  const lastCats=history.slice(-2).map(function(h){return h.category;});
+  const pizzaLast=[...history].reverse().find(function(h){return h.name==="피자"&&h.confirmed;});
+  const burgerLast=[...history].reverse().find(function(h){return h.name==="햄버거"&&h.confirmed;});
+  const candidates=ALL_MENUS.filter(function(m){
+    if(recent5.includes(m.name)) return false;
+    if(excludeName&&m.name===excludeName) return false;
+    if(excludeCategory&&m.category===excludeCategory) return false;
+    if(lastCats.includes(m.category)) return false;
+    if(m.name==="피자"&&pizzaLast&&daysBetween(pizzaLast.date,targetISO)<40) return false;
+    if(m.name==="햄버거"&&burgerLast&&daysBetween(burgerLast.date,targetISO)<50) return false;
+    const conf=[...history].reverse().find(function(h){return h.name===m.name&&h.confirmed;});
+    if(conf&&daysBetween(conf.date,targetISO)<7) return false;
+    return true;
+  });
+  const pool=candidates.length>0?candidates:ALL_MENUS;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+let history=[];
+let actual={};
+let currentView="main";
+let currentIdx=CENTER_IDX;
+const dayState={};
+
+function getDayState(iso){
+  if(!dayState[iso]) dayState[iso]={lunch:null,dinner:null,confirmedLunch:false,confirmedDinner:false};
+  return dayState[iso];
+}
+
+function getRecordVal(iso,type){
+  return (actual[iso]&&actual[iso][type]) || (history.find(function(h){return h.date===iso&&h.type===type&&h.confirmed;})||{}).name || null;
+}
+
+function isDayComplete(iso){
+  return !!(getRecordVal(iso,"lunch") && getRecordVal(iso,"dinner"));
+}
+
+function buildMyChoiceHTML(iso,type,idx){
+  const saved=actual[iso]&&actual[iso][type];
+  if(saved){
+    return '<div class="my-choice"><div class="lbl">나의 선택</div>'
+      +'<div class="my-choice-saved-text">'+saved+'</div>'
+      +'<button class="my-choice-edit" onclick="editActual(\''+iso+'\',\''+type+'\','+idx+')">수정</button></div>';
+  }
+  return '<div class="my-choice"><div class="lbl">나의 선택</div>'
+    +'<div class="my-choice-row">'
+    +'<input class="my-choice-input" id="input_'+iso+'_'+type+'" type="text" placeholder="직접 입력">'
+    +'<button class="btn-save" onclick="saveActual_(\''+iso+'\',\''+type+'\','+idx+')">저장</button>'
+    +'</div></div>';
+}
+
+function saveActual_(iso,type,idx){
+  const input=document.getElementById("input_"+iso+"_"+type);
+  if(!input||!input.value.trim()) return;
+  if(!actual[iso]) actual[iso]={};
+  actual[iso][type]=input.value.trim();
+  saveActual(actual);
+  refreshSlide(idx);
+}
+
+function editActual(iso,type,idx){
+  if(!actual[iso]) return;
+  delete actual[iso][type];
+  if(!actual[iso].lunch&&!actual[iso].dinner) delete actual[iso];
+  saveActual(actual);
+  refreshSlide(idx);
+}
+
+function buildCardHTML(menu,type,idx,confirmed){
+  const label=type==="lunch"?"점심":"저녁";
+  const kurly=KURLY_MAIN[menu.name]||null;
+  const sides=getSides(menu);
+  const sideNames=sides.map(function(s){return s.name;}).join(" · ");
+  const sideKurly=sides.filter(function(s){return s.kurly;}).map(function(s){return s.kurly;}).join(", ");
+  const d=getDateOffset(idx-CENTER_IDX);
+  const iso=toISO(d);
+  let html='<div class="card'+(confirmed?' confirmed':'')+'">';
+  html+='<div class="cat">'+label+' · '+menu.category+'</div>';
+  html+='<div class="menu-name">'+menu.name+'</div>';
+  html+='<div class="info-row"><span class="lbl">컬리</span><span class="val'+(kurly?"":" none")+'">'+(kurly||"없음")+'</span></div>';
+  if(sides.length>0){
+    html+='<div class="info-row"><span class="lbl">반찬</span><span class="val">'+sideNames+'</span></div>';
+    if(sideKurly) html+='<div class="kurly-sides">'+sideKurly+'</div>';
+  }
+  if(confirmed){
+    html+='<div class="saved">✓ 저장됨</div>';
+  } else {
+    html+='<div class="btn-row"><button class="btn-re" onclick="handleReRoll(\''+type+'\','+idx+')">다시</button><button class="btn-ok" onclick="handleOK(\''+type+'\','+idx+')">OK</button></div>';
+  }
+  html+=buildMyChoiceHTML(iso,type,idx);
+  html+='</div>';
+  return html;
+}
+
+function buildPastInputHTML(iso,type,idx){
+  const label=type==="lunch"?"점심":"저녁";
+  const saved=actual[iso]&&actual[iso][type];
+  const editBtn='<button class="my-choice-edit" onclick="editActual(\''+iso+'\',\''+type+'\','+idx+')">';
+  const saveBtn='<button class="btn-save" onclick="saveActual_(\''+iso+'\',\''+type+'\','+idx+')">';
+  if(saved){
+    return '<div class="card confirmed">'
+      +'<div class="cat">'+label+'</div>'
+      +'<div class="menu-name">'+saved+'</div>'
+      +editBtn+'수정</button>'
+      +'</div>';
+  }
+  return '<div class="card">'
+    +'<div class="cat">'+label+'</div>'
+    +'<div class="my-choice-row" style="margin-top:4px">'
+    +'<input class="my-choice-input" id="input_'+iso+'_'+type+'" type="text" placeholder="직접 입력">'
+    +saveBtn+'저장</button>'
+    +'</div></div>';
+}
+
+function buildSlideInner(idx){
+  const offset=idx-CENTER_IDX;
+  const d=getDateOffset(offset);
+  const iso=toISO(d);
+  const ly=getLastYearRecord(d);
+  const lyLabel=getLyLabel(d);
+  const state=getDayState(iso);
+  const savedL=history.find(function(h){return h.date===iso&&h.type==="lunch";});
+  const savedD=history.find(function(h){return h.date===iso&&h.type==="dinner";});
+  const lunchVal=getRecordVal(iso,"lunch");
+  const dinnerVal=getRecordVal(iso,"dinner");
+  const complete=isDayComplete(iso);
+  let html="";
+
+  if(complete){
+    html+='<div class="today-record"><div class="lbl">오늘</div>';
+    if(lunchVal) html+='<div class="row"><span>점심</span>'+lunchVal+'</div>';
+    if(dinnerVal) html+='<div class="row"><span>저녁</span>'+dinnerVal+'</div>';
+    html+='</div>';
+    if(ly&&(ly.lunch||ly.dinner)){
+      html+='<div class="last-year"><div class="lbl">작년 오늘 · '+lyLabel+'</div>';
+      if(ly.lunch) html+='<div class="row"><span>점심</span>'+ly.lunch+'</div>';
+      if(ly.dinner) html+='<div class="row"><span>저녁</span>'+ly.dinner+'</div>';
+      html+='</div>';
+    }
+    html+='<button class="btn-reset" onclick="handleReset(\''+iso+'\','+idx+')">오늘 기록 초기화</button>';
+    return html;
+  }
+
+  if(ly&&(ly.lunch||ly.dinner)){
+    html+='<div class="last-year"><div class="lbl">작년 오늘 · '+lyLabel+'</div>';
+    if(ly.lunch) html+='<div class="row"><span>점심</span>'+ly.lunch+'</div>';
+    if(ly.dinner) html+='<div class="row"><span>저녁</span>'+ly.dinner+'</div>';
+    html+='</div>';
+  }
+
+  if(savedL) html+=buildCardHTML({name:savedL.name,category:savedL.category},"lunch",idx,true);
+  else if(state.lunch) html+=buildCardHTML(state.lunch,"lunch",idx,state.confirmedLunch);
+  else if(offset<0) html+=buildPastInputHTML(iso,"lunch",idx);
+
+  if(savedD) html+=buildCardHTML({name:savedD.name,category:savedD.category},"dinner",idx,true);
+  else if(state.dinner) html+=buildCardHTML(state.dinner,"dinner",idx,state.confirmedDinner);
+  else if(offset<0) html+=buildPastInputHTML(iso,"dinner",idx);
+
+  if(offset>=0){
+    if(state.lunch||state.dinner){
+      html+='<button class="btn-secondary" onclick="handleRecommend('+idx+')">전체 다시 추천</button>';
+    } else {
+      html+='<button class="btn-primary" onclick="handleRecommend('+idx+')">메뉴 추천받기</button>';
+    }
+  }
+
+  const hasAnything=savedL||savedD||state.lunch||state.dinner||(actual[iso]&&(actual[iso].lunch||actual[iso].dinner));
+  if(hasAnything){
+    html+='<button class="btn-reset" onclick="handleReset(\''+iso+'\','+idx+')">오늘 기록 초기화</button>';
+  }
+  return html;
+}
+
+function renderSlider(){
+  const slider=document.getElementById("slider");
+  slider.innerHTML="";
+  for(let i=0;i<TOTAL_DAYS;i++){
+    const slide=document.createElement("div");
+    slide.className="slide";
+    const inner=document.createElement("div");
+    inner.className="slide-inner";
+    inner.id="slide_"+i;
+    inner.innerHTML=buildSlideInner(i);
+    slide.appendChild(inner);
+    slider.appendChild(slide);
+  }
+  updateSliderPosition(false);
+  updateDateLabel();
+  updateNavBtns();
+}
+
+function refreshSlide(idx){
+  const el=document.getElementById("slide_"+idx);
+  if(el) el.innerHTML=buildSlideInner(idx);
+}
+
+function updateSliderPosition(animate){
+  const slider=document.getElementById("slider");
+  slider.style.transition=animate?"transform 0.3s ease":"none";
+  slider.style.transform="translateX(-"+currentIdx+"00vw)";
+}
+
+function updateDateLabel(){
+  const offset=currentIdx-CENTER_IDX;
+  const d=getDateOffset(offset);
+  const label=d.toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"});
+  const badge=offset===0?' <span class="today-badge">오늘</span>':"";
+  document.getElementById("dateLabel").innerHTML=label+badge;
+}
+
+function updateNavBtns(){
+  document.getElementById("btnPrev").disabled=currentIdx<=0;
+  document.getElementById("btnNext").disabled=currentIdx>=TOTAL_DAYS-1;
+}
+
+function goTo(idx){
+  currentIdx=idx;
+  updateSliderPosition(true);
+  updateDateLabel();
+  updateNavBtns();
+}
+
+function handleRecommend(idx){
+  const d=getDateOffset(idx-CENTER_IDX);
+  const iso=toISO(d);
+  const state=getDayState(iso);
+  const l=recommend(history,null,null,iso);
+  const din=recommend(history,l.name,l.category,iso);
+  state.lunch=l; state.dinner=din;
+  state.confirmedLunch=false; state.confirmedDinner=false;
+  refreshSlide(idx);
+}
+
+function handleReRoll(type,idx){
+  const d=getDateOffset(idx-CENTER_IDX);
+  const iso=toISO(d);
+  const state=getDayState(iso);
+  if(type==="lunch"){
+    state.lunch=recommend(history,state.dinner?state.dinner.name:null,state.dinner?state.dinner.category:null,iso);
+    state.confirmedLunch=false;
+  } else {
+    state.dinner=recommend(history,state.lunch?state.lunch.name:null,state.lunch?state.lunch.category:null,iso);
+    state.confirmedDinner=false;
+  }
+  refreshSlide(idx);
+}
+
+function handleOK(type,idx){
+  const d=getDateOffset(idx-CENTER_IDX);
+  const iso=toISO(d);
+  const key=toKey(d);
+  const state=getDayState(iso);
+  const menu=type==="lunch"?state.lunch:state.dinner;
+  if(!menu) return;
+  const label=type==="lunch"?"점심":"저녁";
+  const existIdx=history.findIndex(function(h){return h.date===iso&&h.type===type;});
+  const entry={display:key+" "+label+" - "+menu.name,name:menu.name,category:menu.category,date:iso,type:type,confirmed:true};
+  if(existIdx>=0) history[existIdx]=entry;
+  else history.push(entry);
+  saveHistory(history);
+  if(type==="lunch") state.confirmedLunch=true;
+  else state.confirmedDinner=true;
+  refreshSlide(idx);
+}
+
+function handleReset(iso,idx){
+  if(dayState[iso]) dayState[iso]={lunch:null,dinner:null,confirmedLunch:false,confirmedDinner:false};
+  history=history.filter(function(h){return h.date!==iso;});
+  saveHistory(history);
+  if(actual[iso]) delete actual[iso];
+  saveActual(actual);
+  refreshSlide(idx);
+}
+
+document.getElementById("btnPrev").onclick=function(){if(currentIdx>0) goTo(currentIdx-1);};
+document.getElementById("btnNext").onclick=function(){if(currentIdx<TOTAL_DAYS-1) goTo(currentIdx+1);};
+
+var touchStartX=0,touchStartY=0;
+document.getElementById("sliderOuter").addEventListener("touchstart",function(e){
+  touchStartX=e.touches[0].clientX;
+  touchStartY=e.touches[0].clientY;
+},{passive:true});
+document.getElementById("sliderOuter").addEventListener("touchend",function(e){
+  var dx=e.changedTouches[0].clientX-touchStartX;
+  var dy=e.changedTouches[0].clientY-touchStartY;
+  if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+    if(dx<0&&currentIdx<TOTAL_DAYS-1) goTo(currentIdx+1);
+    else if(dx>0&&currentIdx>0) goTo(currentIdx-1);
+  }
+},{passive:true});
+
+document.getElementById("viewToggle").onclick=function(){
+  currentView=currentView==="main"?"history":"main";
+  document.getElementById("mainView").style.display=currentView==="main"?"flex":"none";
+  document.getElementById("historyView").style.display=currentView==="history"?"flex":"none";
+  document.getElementById("viewToggle").textContent=currentView==="main"?"기록 보기":"← 돌아가기";
+  if(currentView==="history") renderHistory();
+};
+
+function getRecordEntries(){
+  var allDates={};
+  Object.keys(actual).forEach(function(iso){ allDates[iso]=true; });
+  history.filter(function(h){return h.confirmed;}).forEach(function(h){ allDates[h.date]=true; });
+  var sorted=Object.keys(allDates).sort().reverse();
+  var entries=[];
+  sorted.forEach(function(iso){
+    var d=new Date(iso);
+    var key=String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0");
+    ["lunch","dinner"].forEach(function(type){
+      var label=type==="lunch"?"점심":"저녁";
+      var val=getRecordVal(iso,type);
+      if(val) entries.push(iso+" "+label+" - "+val);
+    });
+  });
+  return entries;
+}
+
+function renderHistory(){
+  var el=document.getElementById("historyList");
+  var entries=getRecordEntries();
+  var btnRow='<div class="record-btn-row">'
+    +'<button class="btn-record" onclick="saveRecords()">기록 저장</button>'
+    +'<button class="btn-record" onclick="document.getElementById(\'importFile\').click()">기록 가져오기</button>'
+    +'</div>'
+    +'<input type="file" id="importFile" accept=".json" style="display:none" onchange="importRecords(event)">'
+    +'<div id="importMsg"></div>';
+  if(entries.length===0){
+    el.innerHTML=btnRow+'<p class="empty">저장된 기록이 없습니다.</p>';
+    return;
+  }
+  el.innerHTML=btnRow+entries.map(function(e){
+    // 표시용: ISO날짜를 MM/DD로 변환
+    var parts=e.split(" ");
+    var iso=parts[0];
+    var d=new Date(iso);
+    var key=String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0");
+    return '<div class="history-item">'+key+" "+parts.slice(1).join(" ")+'</div>';
+  }).join("");
+}
+
+function saveRecords(){
+  // 현재 연도 기준으로 파일명 자동 생성
+  const year=new Date().getFullYear();
+  const filename=year+"_menu.json";
+
+  // actual + history 합쳐서 ISO키 형태로 저장
+  var allDates={};
+  Object.keys(actual).forEach(function(iso){ allDates[iso]=true; });
+  history.filter(function(h){return h.confirmed;}).forEach(function(h){ allDates[h.date]=true; });
+
+  var output={};
+  Object.keys(allDates).sort().forEach(function(iso){
+    var lunchVal=getRecordVal(iso,"lunch");
+    var dinnerVal=getRecordVal(iso,"dinner");
+    if(lunchVal||dinnerVal){
+      output[iso]={lunch:lunchVal||"",dinner:dinnerVal||""};
+    }
+  });
+
+  var content=JSON.stringify(output,null,2);
+  var blob=new Blob([content],{type:"application/json;charset=utf-8"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importRecords(event){
+  var file=event.target.files[0];
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      var count=0;
+      Object.keys(data).forEach(function(iso){
+        var rec=data[iso];
+        if(!actual[iso]) actual[iso]={};
+        if(rec.lunch) { actual[iso].lunch=rec.lunch; count++; }
+        if(rec.dinner) { actual[iso].dinner=rec.dinner; count++; }
+      });
+      saveActual(actual);
+      renderHistory();
+      var msg=document.getElementById("importMsg");
+      if(msg) msg.innerHTML='<p class="import-msg">'+count+'개 기록 가져오기 완료</p>';
+    } catch(err){
+      alert("파일 형식이 올바르지 않습니다.");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value="";
+}
+
+window.addEventListener("resize",function(){updateSliderPosition(false);});
+
+// ── 앱 초기화: JSON 파일 fetch ──────────────────────────────
+async function initApp(){
+  try{
+    const year = new Date().getFullYear();
+    const lastYear = year - 1;
+
+    // 3개 파일 동시 fetch
+    const [menuRes, lastYearRes, thisYearRes] = await Promise.all([
+      fetch("menu_data.json"),
+      fetch(lastYear+"_menu.json"),
+      fetch(year+"_menu.json")
+    ]);
+
+    const menuData = await menuRes.json();
+    KURLY_MAIN = menuData.KURLY_MAIN;
+    SIDE_DISHES = menuData.SIDE_DISHES;
+    SIDE_PAIRING = menuData.SIDE_PAIRING;
+    MENUS = menuData.MENUS;
+    NO_SIDE_CATEGORIES = menuData.NO_SIDE_CATEGORIES;
+    NO_SIDE_MENUS = menuData.NO_SIDE_MENUS;
+    ALL_MENUS = Object.entries(MENUS).flatMap(function([cat,items]){
+      return items.map(function(name){return {name:name,category:cat};});
+    });
+
+    LAST_YEAR = await lastYearRes.json();
+    THIS_YEAR = await thisYearRes.json();
+
+    // localStorage 초기화
+    history = loadHistory();
+    actual = loadActual();
+
+    // THIS_YEAR 데이터를 actual에 병합 (actual 우선)
+    Object.keys(THIS_YEAR).forEach(function(iso){
+      if(!actual[iso]){
+        actual[iso] = THIS_YEAR[iso];
+      }
+    });
+
+    // 로딩 화면 숨기고 앱 표시
+    document.getElementById("loadingView").style.display="none";
+    const appView=document.getElementById("appView");
+    appView.style.display="flex";
+
+    renderSlider();
+
+  } catch(err){
+    document.getElementById("loadingView").innerHTML=
+      '<div style="color:#e00;text-align:center;padding:20px">데이터를 불러오지 못했습니다.<br>인터넷 연결을 확인해 주세요.</div>';
+  }
+}
+
+initApp();
+</script>
+</body>
+</html>
