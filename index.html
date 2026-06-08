@@ -93,13 +93,8 @@ body {
   padding: 6px 12px; border-radius: 6px; font-size: 13px;
   cursor: pointer; font-family: inherit; white-space: nowrap;
 }
-.btn-re-sm {
-  background: none; border: 1px solid #ccc; color: #555;
-}
-.btn-ok-sm {
-  background: #111; border: none; color: #fff; font-weight: 600;
-}
-/* 반찬 태그 영역 */
+.btn-re-sm { background: none; border: 1px solid #ccc; color: #555; }
+.btn-ok-sm { background: #111; border: none; color: #fff; font-weight: 600; }
 .side-tags {
   display: flex; flex-wrap: wrap; gap: 6px;
   align-items: center; margin-bottom: 10px;
@@ -109,17 +104,12 @@ body {
   font-size: 12px; cursor: pointer;
   background: #f0f0f0; color: #555;
   border: 1px solid #e0e0e0;
-  transition: all 0.15s;
-  user-select: none;
+  transition: all 0.15s; user-select: none;
 }
-.side-tag.pinned {
-  background: #111; color: #fff; border-color: #111;
-}
+.side-tag.pinned { background: #111; color: #fff; border-color: #111; }
 .side-re-btn {
-  padding: 4px 8px; border-radius: 20px;
-  font-size: 12px; cursor: pointer;
-  background: none; color: #aaa;
-  border: 1px solid #ddd; font-family: inherit;
+  padding: 4px 8px; border-radius: 20px; font-size: 12px; cursor: pointer;
+  background: none; color: #aaa; border: 1px solid #ddd; font-family: inherit;
 }
 .card .saved { font-size: 12px; color: #888; margin-top: 4px; margin-bottom: 8px; }
 .my-choice { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
@@ -138,11 +128,6 @@ body {
 .btn-save {
   padding: 8px 14px; background: #111; border: none; border-radius: 7px;
   font-size: 13px; cursor: pointer; color: #fff; font-family: inherit; white-space: nowrap;
-}
-.btn-primary {
-  margin-top: 14px; width: 100%; padding: 16px 0; background: #111; color: #fff;
-  border: none; border-radius: 10px; font-size: 16px; font-weight: 600;
-  cursor: pointer; letter-spacing: -0.3px; font-family: inherit;
 }
 .btn-secondary {
   margin-top: 14px; width: 100%; padding: 13px 0; background: none;
@@ -223,7 +208,7 @@ function toKey(d){ return String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.ge
 function daysBetween(a,b){ return Math.abs((new Date(a)-new Date(b))/86400000); }
 
 function getSeason(d){
-  const m = d.getMonth()+1;
+  const m=d.getMonth()+1;
   if(m>=3&&m<=5) return "spring";
   if(m>=6&&m<=8) return "summer";
   if(m>=9&&m<=11) return "autumn";
@@ -240,23 +225,22 @@ function getLyLabel(d){
 }
 
 function hasSides(menu){
+  if(!menu) return false;
   if(NO_SIDE_CATEGORIES.includes(menu.category)) return false;
   if(NO_SIDE_MENUS.includes(menu.name)) return false;
   return true;
 }
 
-function pickSides(menu, d, excludePinned, count){
-  // 계절 반찬 + 공통 반찬 풀 구성
-  const season = getSeason(d);
-  const seasonal = SEASONAL_SIDES[season]||[];
-  const common = SEASONAL_SIDES["common"]||[];
-  const pool = [...new Set([...seasonal, ...common])].filter(function(s){ return !excludePinned.includes(s); });
-  // 셔플
+function pickSides(d, excludePinned, count){
+  const season=getSeason(d);
+  const seasonal=SEASONAL_SIDES[season]||[];
+  const common=SEASONAL_SIDES["common"]||[];
+  const pool=[...new Set([...seasonal,...common])].filter(function(s){ return !excludePinned.includes(s); });
   for(let i=pool.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     [pool[i],pool[j]]=[pool[j],pool[i]];
   }
-  return pool.slice(0, count);
+  return pool.slice(0,count);
 }
 
 function recommend(history,excludeName,excludeCategory,targetISO){
@@ -290,7 +274,8 @@ function getDayState(iso){
     lunch:null, dinner:null,
     confirmedLunch:false, confirmedDinner:false,
     lunchSides:[], dinnerSides:[],
-    lunchPinned:[], dinnerPinned:[]
+    lunchPinned:[], dinnerPinned:[],
+    initialized:false
   };
   return dayState[iso];
 }
@@ -300,6 +285,33 @@ function getRecordVal(iso,type){
 }
 function isDayComplete(iso){
   return !!(getRecordVal(iso,"lunch")&&getRecordVal(iso,"dinner"));
+}
+
+// 슬라이드 진입 시 저장되지 않은 끼니만 자동 추천
+function initDayState(iso, d, offset){
+  const state=getDayState(iso);
+  if(state.initialized) return;
+  state.initialized=true;
+
+  // 과거 날짜는 자동 추천 안함
+  if(offset<0) return;
+
+  const savedL=getRecordVal(iso,"lunch");
+  const savedD=getRecordVal(iso,"dinner");
+
+  // 점심 미저장 시 자동 추천
+  if(!savedL&&!state.lunch){
+    const l=recommend(history,null,null,iso);
+    state.lunch=l;
+    if(hasSides(l)) state.lunchSides=pickSides(d,[],3);
+  }
+  // 저녁 미저장 시 자동 추천 (점심과 카테고리 다르게)
+  if(!savedD&&!state.dinner){
+    const lunchMenu=state.lunch||null;
+    const din=recommend(history,lunchMenu?lunchMenu.name:null,lunchMenu?lunchMenu.category:null,iso);
+    state.dinner=din;
+    if(hasSides(din)) state.dinnerSides=pickSides(d,[],3);
+  }
 }
 
 function buildMyChoiceHTML(iso,type,idx){
@@ -332,10 +344,10 @@ function editActual(iso,type,idx){
   refreshSlide(idx);
 }
 
-function buildSideTagsHTML(sides, pinned, type, idx, iso){
+function buildSideTagsHTML(sides,pinned,type,idx,iso){
   if(!sides||sides.length===0) return "";
   let html='<div class="side-tags">';
-  sides.forEach(function(s,i){
+  sides.forEach(function(s){
     const isPinned=pinned.includes(s);
     html+='<span class="side-tag'+(isPinned?' pinned':'')+'" onclick="togglePin(\''+iso+'\',\''+type+'\','+idx+',\''+s+'\')">'+s+'</span>';
   });
@@ -360,7 +372,7 @@ function reSides(iso,type,idx){
   const sidesKey=type==="lunch"?"lunchSides":"dinnerSides";
   const pinnedKey=type==="lunch"?"lunchPinned":"dinnerPinned";
   const pinned=state[pinnedKey];
-  const newSides=pickSides({},d,pinned,3-pinned.length);
+  const newSides=pickSides(d,pinned,3-pinned.length);
   state[sidesKey]=[...pinned,...newSides];
   refreshSlide(idx);
 }
@@ -386,12 +398,8 @@ function buildCardHTML(menu,type,idx,confirmed,iso){
     html+='</div>';
   }
   html+='</div>';
-  if(confirmed){
-    html+='<div class="saved">✓ 저장됨</div>';
-  }
-  if(showSides){
-    html+=buildSideTagsHTML(sides,pinned,type,idx,iso);
-  }
+  if(confirmed) html+='<div class="saved">✓ 저장됨</div>';
+  if(showSides) html+=buildSideTagsHTML(sides,pinned,type,idx,iso);
   html+=buildMyChoiceHTML(iso,type,idx);
   html+='</div>';
   return html;
@@ -422,13 +430,12 @@ function buildSlideInner(idx){
   const ly=getLastYearRecord(d);
   const lyLabel=getLyLabel(d);
   const state=getDayState(iso);
-  const savedL=history.find(function(h){return h.date===iso&&h.type==="lunch";});
-  const savedD=history.find(function(h){return h.date===iso&&h.type==="dinner";});
   const lunchVal=getRecordVal(iso,"lunch");
   const dinnerVal=getRecordVal(iso,"dinner");
   const complete=isDayComplete(iso);
   let html="";
 
+  // 기록 완료
   if(complete){
     html+='<div class="today-record"><div class="lbl">오늘</div>';
     if(lunchVal) html+='<div class="row"><span>점심</span>'+lunchVal+'</div>';
@@ -444,6 +451,7 @@ function buildSlideInner(idx){
     return html;
   }
 
+  // 작년 오늘
   if(ly&&(ly.lunch||ly.dinner)){
     html+='<div class="last-year"><div class="lbl">작년 오늘 · '+lyLabel+'</div>';
     if(ly.lunch) html+='<div class="row"><span>점심</span>'+ly.lunch+'</div>';
@@ -451,23 +459,40 @@ function buildSlideInner(idx){
     html+='</div>';
   }
 
-  if(savedL) html+=buildCardHTML({name:savedL.name,category:savedL.category},"lunch",idx,true,iso);
-  else if(state.lunch) html+=buildCardHTML(state.lunch,"lunch",idx,state.confirmedLunch,iso);
-  else if(offset<0) html+=buildPastInputHTML(iso,"lunch",idx);
-
-  if(savedD) html+=buildCardHTML({name:savedD.name,category:savedD.category},"dinner",idx,true,iso);
-  else if(state.dinner) html+=buildCardHTML(state.dinner,"dinner",idx,state.confirmedDinner,iso);
-  else if(offset<0) html+=buildPastInputHTML(iso,"dinner",idx);
-
-  if(offset>=0){
-    if(state.lunch||state.dinner){
-      html+='<button class="btn-secondary" onclick="handleRecommend('+idx+')">전체 다시 추천</button>';
-    } else {
-      html+='<button class="btn-primary" onclick="handleRecommend('+idx+')">메뉴 추천받기</button>';
-    }
+  // 과거 날짜: 직접 입력만
+  if(offset<0){
+    html+=buildPastInputHTML(iso,"lunch",idx);
+    html+=buildPastInputHTML(iso,"dinner",idx);
+    return html;
   }
 
-  const hasAnything=savedL||savedD||state.lunch||state.dinner||(actual[iso]&&(actual[iso].lunch||actual[iso].dinner));
+  // 오늘/미래: 저장된 끼니는 저장 표시, 미저장 끼니는 추천 표시
+  // 점심
+  if(lunchVal){
+    // 이미 저장됨 - 추천 표시 안함
+    const savedLunch=history.find(function(h){return h.date===iso&&h.type==="lunch";});
+    const menuObj=savedLunch?{name:savedLunch.name,category:savedLunch.category}:{name:lunchVal,category:""};
+    html+=buildCardHTML(menuObj,"lunch",idx,true,iso);
+  } else if(state.lunch){
+    html+=buildCardHTML(state.lunch,"lunch",idx,state.confirmedLunch,iso);
+  }
+
+  // 저녁
+  if(dinnerVal){
+    // 이미 저장됨 - 추천 표시 안함
+    const savedDinner=history.find(function(h){return h.date===iso&&h.type==="dinner";});
+    const menuObj=savedDinner?{name:savedDinner.name,category:savedDinner.category}:{name:dinnerVal,category:""};
+    html+=buildCardHTML(menuObj,"dinner",idx,true,iso);
+  } else if(state.dinner){
+    html+=buildCardHTML(state.dinner,"dinner",idx,state.confirmedDinner,iso);
+  }
+
+  // 전체 다시 추천 (미저장 끼니가 있을 때만)
+  if(!lunchVal||!dinnerVal){
+    html+='<button class="btn-secondary" onclick="handleRecommend('+idx+')">전체 다시 추천</button>';
+  }
+
+  const hasAnything=lunchVal||dinnerVal||state.lunch||state.dinner||(actual[iso]&&(actual[iso].lunch||actual[iso].dinner));
   if(hasAnything){
     html+='<button class="btn-reset" onclick="handleReset(\''+iso+'\','+idx+')">오늘 기록 초기화</button>';
   }
@@ -478,6 +503,11 @@ function renderSlider(){
   const slider=document.getElementById("slider");
   slider.innerHTML="";
   for(let i=0;i<TOTAL_DAYS;i++){
+    const offset=i-CENTER_IDX;
+    const d=getDateOffset(offset);
+    const iso=toISO(d);
+    // 슬라이드 생성 전 자동 추천 초기화
+    initDayState(iso,d,offset);
     const slide=document.createElement("div");
     slide.className="slide";
     const inner=document.createElement("div");
@@ -527,16 +557,26 @@ function handleRecommend(idx){
   const d=getDateOffset(idx-CENTER_IDX);
   const iso=toISO(d);
   const state=getDayState(iso);
-  const l=recommend(history,null,null,iso);
-  const din=recommend(history,l.name,l.category,iso);
-  state.lunch=l; state.dinner=din;
-  state.confirmedLunch=false; state.confirmedDinner=false;
-  state.lunchPinned=[]; state.dinnerPinned=[];
-  // 반찬 초기 추천
-  if(hasSides(l)) state.lunchSides=pickSides(l,d,[],3);
-  else state.lunchSides=[];
-  if(hasSides(din)) state.dinnerSides=pickSides(din,d,[],3);
-  else state.dinnerSides=[];
+  const lunchVal=getRecordVal(iso,"lunch");
+  const dinnerVal=getRecordVal(iso,"dinner");
+  // 저장된 끼니는 유지, 미저장만 재추천
+  if(!lunchVal){
+    const l=recommend(history,null,null,iso);
+    state.lunch=l;
+    state.confirmedLunch=false;
+    state.lunchPinned=[];
+    if(hasSides(l)) state.lunchSides=pickSides(d,[],3);
+    else state.lunchSides=[];
+  }
+  if(!dinnerVal){
+    const lunchMenu=state.lunch||null;
+    const din=recommend(history,lunchMenu?lunchMenu.name:null,lunchMenu?lunchMenu.category:null,iso);
+    state.dinner=din;
+    state.confirmedDinner=false;
+    state.dinnerPinned=[];
+    if(hasSides(din)) state.dinnerSides=pickSides(d,[],3);
+    else state.dinnerSides=[];
+  }
   refreshSlide(idx);
 }
 
@@ -548,13 +588,13 @@ function handleReRoll(type,idx){
     state.lunch=recommend(history,state.dinner?state.dinner.name:null,state.dinner?state.dinner.category:null,iso);
     state.confirmedLunch=false;
     state.lunchPinned=[];
-    if(hasSides(state.lunch)) state.lunchSides=pickSides(state.lunch,d,[],3);
+    if(hasSides(state.lunch)) state.lunchSides=pickSides(d,[],3);
     else state.lunchSides=[];
   } else {
     state.dinner=recommend(history,state.lunch?state.lunch.name:null,state.lunch?state.lunch.category:null,iso);
     state.confirmedDinner=false;
     state.dinnerPinned=[];
-    if(hasSides(state.dinner)) state.dinnerSides=pickSides(state.dinner,d,[],3);
+    if(hasSides(state.dinner)) state.dinnerSides=pickSides(d,[],3);
     else state.dinnerSides=[];
   }
   refreshSlide(idx);
@@ -583,12 +623,17 @@ function handleReset(iso,idx){
     lunch:null,dinner:null,
     confirmedLunch:false,confirmedDinner:false,
     lunchSides:[],dinnerSides:[],
-    lunchPinned:[],dinnerPinned:[]
+    lunchPinned:[],dinnerPinned:[],
+    initialized:false
   };
   history=history.filter(function(h){return h.date!==iso;});
   saveHistory(history);
   if(actual[iso]) delete actual[iso];
   saveActual(actual);
+  // 초기화 후 재추천
+  const offset=idx-CENTER_IDX;
+  const d=getDateOffset(offset);
+  initDayState(iso,d,offset);
   refreshSlide(idx);
 }
 
@@ -725,8 +770,7 @@ async function initApp(){
       if(!actual[iso]) actual[iso]=THIS_YEAR[iso];
     });
     document.getElementById("loadingView").style.display="none";
-    const appView=document.getElementById("appView");
-    appView.style.display="flex";
+    document.getElementById("appView").style.display="flex";
     renderSlider();
   }catch(err){
     document.getElementById("loadingView").innerHTML=
