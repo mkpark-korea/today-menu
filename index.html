@@ -82,26 +82,47 @@ body {
   background: #fff; transition: all 0.2s;
 }
 .card.confirmed { border: 1.5px solid #111; background: #f5f5f5; }
-.card .cat { font-size: 11px; color: #bbb; margin-bottom: 4px; letter-spacing: 0.5px; }
-.card .menu-name { font-size: 22px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
-.card .info-row { font-size: 12px; margin-bottom: 4px; }
-.card .info-row .lbl { color: #999; }
-.card .info-row .val { margin-left: 8px; color: #333; }
-.card .info-row .val.none { color: #ccc; }
-.card .kurly-sides { font-size: 11px; color: #999; margin-top: 2px; padding-left: 32px; margin-bottom: 4px; }
-.card .saved { font-size: 12px; color: #888; margin-top: 8px; }
-.btn-row { display: flex; gap: 8px; margin-top: 10px; }
-.btn-re {
-  flex: 1; padding: 9px 0; background: none;
-  border: 1px solid #ccc; border-radius: 7px;
-  font-size: 14px; cursor: pointer; color: #555; font-family: inherit;
+.card .meal-label { font-size: 11px; color: #aaa; margin-bottom: 6px; letter-spacing: 1px; }
+.card .menu-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
 }
-.btn-ok {
-  flex: 1; padding: 9px 0; background: #111; border: none;
-  border-radius: 7px; font-size: 14px; cursor: pointer;
-  color: #fff; font-weight: 600; font-family: inherit;
+.card .menu-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+.card .menu-btns { display: flex; gap: 6px; flex-shrink: 0; margin-left: 8px; }
+.card .menu-btns button {
+  padding: 6px 12px; border-radius: 6px; font-size: 13px;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
 }
-.my-choice { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+.btn-re-sm {
+  background: none; border: 1px solid #ccc; color: #555;
+}
+.btn-ok-sm {
+  background: #111; border: none; color: #fff; font-weight: 600;
+}
+/* 반찬 태그 영역 */
+.side-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  align-items: center; margin-bottom: 10px;
+}
+.side-tag {
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 12px; cursor: pointer;
+  background: #f0f0f0; color: #555;
+  border: 1px solid #e0e0e0;
+  transition: all 0.15s;
+  user-select: none;
+}
+.side-tag.pinned {
+  background: #111; color: #fff; border-color: #111;
+}
+.side-re-btn {
+  padding: 4px 8px; border-radius: 20px;
+  font-size: 12px; cursor: pointer;
+  background: none; color: #aaa;
+  border: 1px solid #ddd; font-family: inherit;
+}
+.card .saved { font-size: 12px; color: #888; margin-top: 4px; margin-bottom: 8px; }
+.my-choice { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
 .my-choice .lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; letter-spacing: 0.5px; }
 .my-choice-row { display: flex; gap: 8px; }
 .my-choice-input {
@@ -134,10 +155,7 @@ body {
   font-size: 13px; cursor: pointer; font-family: inherit;
 }
 .history-wrap { width: 88%; max-width: 480px; padding-bottom: 40px; }
-/* 기록 저장/가져오기 한 줄 버튼 */
-.record-btn-row {
-  display: flex; gap: 8px; margin-top: 16px;
-}
+.record-btn-row { display: flex; gap: 8px; margin-top: 16px; }
 .btn-record {
   flex: 1; padding: 13px 0; background: none; color: #888;
   border: 1px solid #ddd; border-radius: 10px;
@@ -150,13 +168,11 @@ body {
 </head>
 <body>
 
-<!-- 로딩 화면 -->
 <div class="loading" id="loadingView">
   <div class="loading-dot">●</div>
   <div>불러오는 중...</div>
 </div>
 
-<!-- 메인 앱 (로딩 완료 후 표시) -->
 <div id="appView" style="display:none; width:100%; flex-direction:column; align-items:center;">
   <div class="header">
     <h1>오늘 메뉴</h1>
@@ -185,7 +201,6 @@ const ACTUAL_KEY = "오늘메뉴_실제_v1";
 const TOTAL_DAYS = 15;
 const CENTER_IDX = 7;
 
-// 전역 데이터
 let KURLY_MAIN = {};
 let SIDE_DISHES = {};
 let SIDE_PAIRING = {};
@@ -193,8 +208,9 @@ let MENUS = {};
 let ALL_MENUS = [];
 let NO_SIDE_CATEGORIES = [];
 let NO_SIDE_MENUS = [];
-let LAST_YEAR = {}; // 작년(2025) 데이터
-let THIS_YEAR = {}; // 올해(2026~) 데이터
+let SEASONAL_SIDES = {};
+let LAST_YEAR = {};
+let THIS_YEAR = {};
 
 function loadHistory(){ try{ const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):[]; }catch{return[];} }
 function saveHistory(h){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(h)); }catch{} }
@@ -206,21 +222,41 @@ function toISO(d){ return d.toISOString().slice(0,10); }
 function toKey(d){ return String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0"); }
 function daysBetween(a,b){ return Math.abs((new Date(a)-new Date(b))/86400000); }
 
-function getLastYearRecord(d){
-  // 현재 날짜의 작년 동일 날짜 ISO
-  const lyISO = (d.getFullYear()-1)+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  return LAST_YEAR[lyISO] || null;
+function getSeason(d){
+  const m = d.getMonth()+1;
+  if(m>=3&&m<=5) return "spring";
+  if(m>=6&&m<=8) return "summer";
+  if(m>=9&&m<=11) return "autumn";
+  return "winter";
 }
 
+function getLastYearRecord(d){
+  const lyISO=(d.getFullYear()-1)+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return LAST_YEAR[lyISO]||null;
+}
 function getLyLabel(d){
-  const lyDate = new Date(d.getFullYear()-1, d.getMonth(), d.getDate());
+  const lyDate=new Date(d.getFullYear()-1,d.getMonth(),d.getDate());
   return lyDate.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 }
 
-function getSides(menu){
-  if(NO_SIDE_CATEGORIES.includes(menu.category)) return [];
-  if(NO_SIDE_MENUS.includes(menu.name)) return [];
-  return (SIDE_PAIRING[menu.name]||[]).map(function(name){return {name:name,kurly:SIDE_DISHES[name]||null};});
+function hasSides(menu){
+  if(NO_SIDE_CATEGORIES.includes(menu.category)) return false;
+  if(NO_SIDE_MENUS.includes(menu.name)) return false;
+  return true;
+}
+
+function pickSides(menu, d, excludePinned, count){
+  // 계절 반찬 + 공통 반찬 풀 구성
+  const season = getSeason(d);
+  const seasonal = SEASONAL_SIDES[season]||[];
+  const common = SEASONAL_SIDES["common"]||[];
+  const pool = [...new Set([...seasonal, ...common])].filter(function(s){ return !excludePinned.includes(s); });
+  // 셔플
+  for(let i=pool.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [pool[i],pool[j]]=[pool[j],pool[i]];
+  }
+  return pool.slice(0, count);
 }
 
 function recommend(history,excludeName,excludeCategory,targetISO){
@@ -250,16 +286,20 @@ let currentIdx=CENTER_IDX;
 const dayState={};
 
 function getDayState(iso){
-  if(!dayState[iso]) dayState[iso]={lunch:null,dinner:null,confirmedLunch:false,confirmedDinner:false};
+  if(!dayState[iso]) dayState[iso]={
+    lunch:null, dinner:null,
+    confirmedLunch:false, confirmedDinner:false,
+    lunchSides:[], dinnerSides:[],
+    lunchPinned:[], dinnerPinned:[]
+  };
   return dayState[iso];
 }
 
 function getRecordVal(iso,type){
-  return (actual[iso]&&actual[iso][type]) || (history.find(function(h){return h.date===iso&&h.type===type&&h.confirmed;})||{}).name || null;
+  return (actual[iso]&&actual[iso][type])||(history.find(function(h){return h.date===iso&&h.type===type&&h.confirmed;})||{}).name||null;
 }
-
 function isDayComplete(iso){
-  return !!(getRecordVal(iso,"lunch") && getRecordVal(iso,"dinner"));
+  return !!(getRecordVal(iso,"lunch")&&getRecordVal(iso,"dinner"));
 }
 
 function buildMyChoiceHTML(iso,type,idx){
@@ -284,7 +324,6 @@ function saveActual_(iso,type,idx){
   saveActual(actual);
   refreshSlide(idx);
 }
-
 function editActual(iso,type,idx){
   if(!actual[iso]) return;
   delete actual[iso][type];
@@ -293,26 +332,65 @@ function editActual(iso,type,idx){
   refreshSlide(idx);
 }
 
-function buildCardHTML(menu,type,idx,confirmed){
-  const label=type==="lunch"?"점심":"저녁";
-  const kurly=KURLY_MAIN[menu.name]||null;
-  const sides=getSides(menu);
-  const sideNames=sides.map(function(s){return s.name;}).join(" · ");
-  const sideKurly=sides.filter(function(s){return s.kurly;}).map(function(s){return s.kurly;}).join(", ");
+function buildSideTagsHTML(sides, pinned, type, idx, iso){
+  if(!sides||sides.length===0) return "";
+  let html='<div class="side-tags">';
+  sides.forEach(function(s,i){
+    const isPinned=pinned.includes(s);
+    html+='<span class="side-tag'+(isPinned?' pinned':'')+'" onclick="togglePin(\''+iso+'\',\''+type+'\','+idx+',\''+s+'\')">'+s+'</span>';
+  });
+  html+='<button class="side-re-btn" onclick="reSides(\''+iso+'\',\''+type+'\','+idx+')">↺</button>';
+  html+='</div>';
+  return html;
+}
+
+function togglePin(iso,type,idx,sideName){
+  const state=getDayState(iso);
+  const pinnedKey=type==="lunch"?"lunchPinned":"dinnerPinned";
+  const pinned=state[pinnedKey];
+  const i=pinned.indexOf(sideName);
+  if(i>=0) pinned.splice(i,1);
+  else pinned.push(sideName);
+  refreshSlide(idx);
+}
+
+function reSides(iso,type,idx){
   const d=getDateOffset(idx-CENTER_IDX);
-  const iso=toISO(d);
+  const state=getDayState(iso);
+  const sidesKey=type==="lunch"?"lunchSides":"dinnerSides";
+  const pinnedKey=type==="lunch"?"lunchPinned":"dinnerPinned";
+  const pinned=state[pinnedKey];
+  const newSides=pickSides({},d,pinned,3-pinned.length);
+  state[sidesKey]=[...pinned,...newSides];
+  refreshSlide(idx);
+}
+
+function buildCardHTML(menu,type,idx,confirmed,iso){
+  const label=type==="lunch"?"점심":"저녁";
+  const d=getDateOffset(idx-CENTER_IDX);
+  const state=getDayState(iso);
+  const sidesKey=type==="lunch"?"lunchSides":"dinnerSides";
+  const pinnedKey=type==="lunch"?"lunchPinned":"dinnerPinned";
+  const sides=state[sidesKey]||[];
+  const pinned=state[pinnedKey]||[];
+  const showSides=hasSides(menu)&&sides.length>0;
+
   let html='<div class="card'+(confirmed?' confirmed':'')+'">';
-  html+='<div class="cat">'+label+' · '+menu.category+'</div>';
+  html+='<div class="meal-label">'+label+'</div>';
+  html+='<div class="menu-row">';
   html+='<div class="menu-name">'+menu.name+'</div>';
-  html+='<div class="info-row"><span class="lbl">컬리</span><span class="val'+(kurly?"":" none")+'">'+(kurly||"없음")+'</span></div>';
-  if(sides.length>0){
-    html+='<div class="info-row"><span class="lbl">반찬</span><span class="val">'+sideNames+'</span></div>';
-    if(sideKurly) html+='<div class="kurly-sides">'+sideKurly+'</div>';
+  if(!confirmed){
+    html+='<div class="menu-btns">';
+    html+='<button class="btn-re-sm" onclick="handleReRoll(\''+type+'\','+idx+')">다시</button>';
+    html+='<button class="btn-ok-sm" onclick="handleOK(\''+type+'\','+idx+')">OK</button>';
+    html+='</div>';
   }
+  html+='</div>';
   if(confirmed){
     html+='<div class="saved">✓ 저장됨</div>';
-  } else {
-    html+='<div class="btn-row"><button class="btn-re" onclick="handleReRoll(\''+type+'\','+idx+')">다시</button><button class="btn-ok" onclick="handleOK(\''+type+'\','+idx+')">OK</button></div>';
+  }
+  if(showSides){
+    html+=buildSideTagsHTML(sides,pinned,type,idx,iso);
   }
   html+=buildMyChoiceHTML(iso,type,idx);
   html+='</div>';
@@ -326,17 +404,15 @@ function buildPastInputHTML(iso,type,idx){
   const saveBtn='<button class="btn-save" onclick="saveActual_(\''+iso+'\',\''+type+'\','+idx+')">';
   if(saved){
     return '<div class="card confirmed">'
-      +'<div class="cat">'+label+'</div>'
+      +'<div class="meal-label">'+label+'</div>'
       +'<div class="menu-name">'+saved+'</div>'
-      +editBtn+'수정</button>'
-      +'</div>';
+      +editBtn+'수정</button></div>';
   }
   return '<div class="card">'
-    +'<div class="cat">'+label+'</div>'
+    +'<div class="meal-label">'+label+'</div>'
     +'<div class="my-choice-row" style="margin-top:4px">'
     +'<input class="my-choice-input" id="input_'+iso+'_'+type+'" type="text" placeholder="직접 입력">'
-    +saveBtn+'저장</button>'
-    +'</div></div>';
+    +saveBtn+'저장</button></div>';
 }
 
 function buildSlideInner(idx){
@@ -375,12 +451,12 @@ function buildSlideInner(idx){
     html+='</div>';
   }
 
-  if(savedL) html+=buildCardHTML({name:savedL.name,category:savedL.category},"lunch",idx,true);
-  else if(state.lunch) html+=buildCardHTML(state.lunch,"lunch",idx,state.confirmedLunch);
+  if(savedL) html+=buildCardHTML({name:savedL.name,category:savedL.category},"lunch",idx,true,iso);
+  else if(state.lunch) html+=buildCardHTML(state.lunch,"lunch",idx,state.confirmedLunch,iso);
   else if(offset<0) html+=buildPastInputHTML(iso,"lunch",idx);
 
-  if(savedD) html+=buildCardHTML({name:savedD.name,category:savedD.category},"dinner",idx,true);
-  else if(state.dinner) html+=buildCardHTML(state.dinner,"dinner",idx,state.confirmedDinner);
+  if(savedD) html+=buildCardHTML({name:savedD.name,category:savedD.category},"dinner",idx,true,iso);
+  else if(state.dinner) html+=buildCardHTML(state.dinner,"dinner",idx,state.confirmedDinner,iso);
   else if(offset<0) html+=buildPastInputHTML(iso,"dinner",idx);
 
   if(offset>=0){
@@ -455,6 +531,12 @@ function handleRecommend(idx){
   const din=recommend(history,l.name,l.category,iso);
   state.lunch=l; state.dinner=din;
   state.confirmedLunch=false; state.confirmedDinner=false;
+  state.lunchPinned=[]; state.dinnerPinned=[];
+  // 반찬 초기 추천
+  if(hasSides(l)) state.lunchSides=pickSides(l,d,[],3);
+  else state.lunchSides=[];
+  if(hasSides(din)) state.dinnerSides=pickSides(din,d,[],3);
+  else state.dinnerSides=[];
   refreshSlide(idx);
 }
 
@@ -465,9 +547,15 @@ function handleReRoll(type,idx){
   if(type==="lunch"){
     state.lunch=recommend(history,state.dinner?state.dinner.name:null,state.dinner?state.dinner.category:null,iso);
     state.confirmedLunch=false;
+    state.lunchPinned=[];
+    if(hasSides(state.lunch)) state.lunchSides=pickSides(state.lunch,d,[],3);
+    else state.lunchSides=[];
   } else {
     state.dinner=recommend(history,state.lunch?state.lunch.name:null,state.lunch?state.lunch.category:null,iso);
     state.confirmedDinner=false;
+    state.dinnerPinned=[];
+    if(hasSides(state.dinner)) state.dinnerSides=pickSides(state.dinner,d,[],3);
+    else state.dinnerSides=[];
   }
   refreshSlide(idx);
 }
@@ -491,7 +579,12 @@ function handleOK(type,idx){
 }
 
 function handleReset(iso,idx){
-  if(dayState[iso]) dayState[iso]={lunch:null,dinner:null,confirmedLunch:false,confirmedDinner:false};
+  if(dayState[iso]) dayState[iso]={
+    lunch:null,dinner:null,
+    confirmedLunch:false,confirmedDinner:false,
+    lunchSides:[],dinnerSides:[],
+    lunchPinned:[],dinnerPinned:[]
+  };
   history=history.filter(function(h){return h.date!==iso;});
   saveHistory(history);
   if(actual[iso]) delete actual[iso];
@@ -536,7 +629,7 @@ function getRecordEntries(){
     ["lunch","dinner"].forEach(function(type){
       var label=type==="lunch"?"점심":"저녁";
       var val=getRecordVal(iso,type);
-      if(val) entries.push(iso+" "+label+" - "+val);
+      if(val) entries.push({iso:iso,key:key,label:label,val:val});
     });
   });
   return entries;
@@ -556,34 +649,20 @@ function renderHistory(){
     return;
   }
   el.innerHTML=btnRow+entries.map(function(e){
-    // 표시용: ISO날짜를 MM/DD로 변환
-    var parts=e.split(" ");
-    var iso=parts[0];
-    var d=new Date(iso);
-    var key=String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0");
-    return '<div class="history-item">'+key+" "+parts.slice(1).join(" ")+'</div>';
+    return '<div class="history-item">'+e.key+' '+e.label+' - '+e.val+'</div>';
   }).join("");
 }
 
 function saveRecords(){
-  // 현재 연도 기준으로 파일명 자동 생성
-  const year=new Date().getFullYear();
-  const filename=year+"_menu.json";
-
-  // actual + history 합쳐서 ISO키 형태로 저장
-  var allDates={};
-  Object.keys(actual).forEach(function(iso){ allDates[iso]=true; });
-  history.filter(function(h){return h.confirmed;}).forEach(function(h){ allDates[h.date]=true; });
-
+  var year=new Date().getFullYear();
+  var filename=year+"_menu.json";
+  var entries=getRecordEntries();
   var output={};
-  Object.keys(allDates).sort().forEach(function(iso){
-    var lunchVal=getRecordVal(iso,"lunch");
-    var dinnerVal=getRecordVal(iso,"dinner");
-    if(lunchVal||dinnerVal){
-      output[iso]={lunch:lunchVal||"",dinner:dinnerVal||""};
-    }
+  entries.forEach(function(e){
+    if(!output[e.iso]) output[e.iso]={lunch:"",dinner:""};
+    if(e.label==="점심") output[e.iso].lunch=e.val;
+    else output[e.iso].dinner=e.val;
   });
-
   var content=JSON.stringify(output,null,2);
   var blob=new Blob([content],{type:"application/json;charset=utf-8"});
   var url=URL.createObjectURL(blob);
@@ -603,16 +682,14 @@ function importRecords(event){
       Object.keys(data).forEach(function(iso){
         var rec=data[iso];
         if(!actual[iso]) actual[iso]={};
-        if(rec.lunch) { actual[iso].lunch=rec.lunch; count++; }
-        if(rec.dinner) { actual[iso].dinner=rec.dinner; count++; }
+        if(rec.lunch){actual[iso].lunch=rec.lunch;count++;}
+        if(rec.dinner){actual[iso].dinner=rec.dinner;count++;}
       });
       saveActual(actual);
       renderHistory();
       var msg=document.getElementById("importMsg");
       if(msg) msg.innerHTML='<p class="import-msg">'+count+'개 기록 가져오기 완료</p>';
-    } catch(err){
-      alert("파일 형식이 올바르지 않습니다.");
-    }
+    }catch(err){alert("파일 형식이 올바르지 않습니다.");}
   };
   reader.readAsText(file);
   event.target.value="";
@@ -620,52 +697,38 @@ function importRecords(event){
 
 window.addEventListener("resize",function(){updateSliderPosition(false);});
 
-// ── 앱 초기화: JSON 파일 fetch ──────────────────────────────
 async function initApp(){
   try{
-    const year = new Date().getFullYear();
-    const lastYear = year - 1;
-
-    // 3개 파일 동시 fetch
-    const [menuRes, lastYearRes, thisYearRes] = await Promise.all([
+    const year=new Date().getFullYear();
+    const lastYear=year-1;
+    const [menuRes,lastYearRes,thisYearRes]=await Promise.all([
       fetch("menu_data.json"),
       fetch(lastYear+"_menu.json"),
       fetch(year+"_menu.json")
     ]);
-
-    const menuData = await menuRes.json();
-    KURLY_MAIN = menuData.KURLY_MAIN;
-    SIDE_DISHES = menuData.SIDE_DISHES;
-    SIDE_PAIRING = menuData.SIDE_PAIRING;
-    MENUS = menuData.MENUS;
-    NO_SIDE_CATEGORIES = menuData.NO_SIDE_CATEGORIES;
-    NO_SIDE_MENUS = menuData.NO_SIDE_MENUS;
-    ALL_MENUS = Object.entries(MENUS).flatMap(function([cat,items]){
+    const menuData=await menuRes.json();
+    KURLY_MAIN=menuData.KURLY_MAIN;
+    SIDE_DISHES=menuData.SIDE_DISHES;
+    SIDE_PAIRING=menuData.SIDE_PAIRING;
+    MENUS=menuData.MENUS;
+    NO_SIDE_CATEGORIES=menuData.NO_SIDE_CATEGORIES;
+    NO_SIDE_MENUS=menuData.NO_SIDE_MENUS;
+    SEASONAL_SIDES=menuData.SEASONAL_SIDES||{};
+    ALL_MENUS=Object.entries(MENUS).flatMap(function([cat,items]){
       return items.map(function(name){return {name:name,category:cat};});
     });
-
-    LAST_YEAR = await lastYearRes.json();
-    THIS_YEAR = await thisYearRes.json();
-
-    // localStorage 초기화
-    history = loadHistory();
-    actual = loadActual();
-
-    // THIS_YEAR 데이터를 actual에 병합 (actual 우선)
+    LAST_YEAR=await lastYearRes.json();
+    THIS_YEAR=await thisYearRes.json();
+    history=loadHistory();
+    actual=loadActual();
     Object.keys(THIS_YEAR).forEach(function(iso){
-      if(!actual[iso]){
-        actual[iso] = THIS_YEAR[iso];
-      }
+      if(!actual[iso]) actual[iso]=THIS_YEAR[iso];
     });
-
-    // 로딩 화면 숨기고 앱 표시
     document.getElementById("loadingView").style.display="none";
     const appView=document.getElementById("appView");
     appView.style.display="flex";
-
     renderSlider();
-
-  } catch(err){
+  }catch(err){
     document.getElementById("loadingView").innerHTML=
       '<div style="color:#e00;text-align:center;padding:20px">데이터를 불러오지 못했습니다.<br>인터넷 연결을 확인해 주세요.</div>';
   }
