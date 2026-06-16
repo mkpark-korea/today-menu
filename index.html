@@ -130,8 +130,8 @@ body {
   font-size: 13px; cursor: pointer; color: #fff; font-family: inherit; white-space: nowrap;
 }
 .btn-camera {
-  padding: 8px 10px; background: none; border: 1px solid #ddd; border-radius: 7px;
-  font-size: 16px; cursor: pointer; color: #555; font-family: inherit; white-space: nowrap;
+  padding: 8px 12px; background: none; border: 1px solid #ddd; border-radius: 7px;
+  font-size: 13px; cursor: pointer; color: #555; font-family: inherit; white-space: nowrap;
 }
 .btn-camera:disabled { opacity: 0.4; }
 .camera-status {
@@ -334,7 +334,7 @@ function buildMyChoiceHTML(iso,type,idx){
   return '<div class="my-choice"><div class="lbl">나의 선택</div>'
     +'<div class="my-choice-row">'
     +'<input class="my-choice-input" id="'+inputId+'" type="text" placeholder="직접 입력">'
-    +'<button class="btn-camera" onclick="document.getElementById(\''+fileId+'\').click()">📷</button>'
+    +'<button class="btn-camera" onclick="document.getElementById(\''+fileId+'\').click()">사진</button>'
     +'<input type="file" id="'+fileId+'" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event,\''+inputId+'\',\''+iso+'\',\''+type+'\')">'
     +'<button class="btn-save" onclick="saveActual_(\''+iso+'\',\''+type+'\','+idx+')">저장</button>'
     +'</div>'
@@ -472,7 +472,7 @@ function buildPastInputHTML(iso,type,idx){
     +'<div class="meal-label">'+label+'</div>'
     +'<div class="my-choice-row" style="margin-top:4px">'
     +'<input class="my-choice-input" id="'+inputId+'" type="text" placeholder="직접 입력">'
-    +'<button class="btn-camera" onclick="document.getElementById(\''+fileId+'\').click()">📷</button>'
+    +'<button class="btn-camera" onclick="document.getElementById(\''+fileId+'\').click()">사진</button>'
     +'<input type="file" id="'+fileId+'" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event,\''+inputId+'\',\''+iso+'\',\''+type+'\')">'
     +saveBtn+'저장</button></div>'
     +'<div class="camera-status" id="status_'+inputId+'"></div></div>';
