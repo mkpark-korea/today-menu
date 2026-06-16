@@ -129,6 +129,14 @@ body {
   padding: 8px 14px; background: #111; border: none; border-radius: 7px;
   font-size: 13px; cursor: pointer; color: #fff; font-family: inherit; white-space: nowrap;
 }
+.btn-camera {
+  padding: 8px 10px; background: none; border: 1px solid #ddd; border-radius: 7px;
+  font-size: 16px; cursor: pointer; color: #555; font-family: inherit; white-space: nowrap;
+}
+.btn-camera:disabled { opacity: 0.4; }
+.camera-status {
+  font-size: 12px; color: #888; margin-top: 6px;
+}
 .btn-secondary {
   margin-top: 14px; width: 100%; padding: 13px 0; background: none;
   color: #888; border: 1px solid #ddd; border-radius: 10px;
@@ -321,11 +329,53 @@ function buildMyChoiceHTML(iso,type,idx){
       +'<div class="my-choice-saved-text">'+saved+'</div>'
       +'<button class="my-choice-edit" onclick="editActual(\''+iso+'\',\''+type+'\','+idx+')">수정</button></div>';
   }
+  const inputId='input_'+iso+'_'+type;
+  const fileId='file_'+iso+'_'+type;
   return '<div class="my-choice"><div class="lbl">나의 선택</div>'
     +'<div class="my-choice-row">'
-    +'<input class="my-choice-input" id="input_'+iso+'_'+type+'" type="text" placeholder="직접 입력">'
+    +'<input class="my-choice-input" id="'+inputId+'" type="text" placeholder="직접 입력">'
+    +'<button class="btn-camera" onclick="document.getElementById(\''+fileId+'\').click()">📷</button>'
+    +'<input type="file" id="'+fileId+'" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event,\''+inputId+'\',\''+iso+'\',\''+type+'\')">'
     +'<button class="btn-save" onclick="saveActual_(\''+iso+'\',\''+type+'\','+idx+')">저장</button>'
-    +'</div></div>';
+    +'</div>'
+    +'<div class="camera-status" id="status_'+inputId+'"></div>'
+    +'</div>';
+}
+
+function handlePhoto(event,inputId,iso,type){
+  const file=event.target.files[0];
+  if(!file) return;
+  const statusEl=document.getElementById('status_'+inputId);
+  const inputEl=document.getElementById(inputId);
+  if(statusEl) statusEl.textContent='사진 분석 중...';
+  if(inputEl) inputEl.disabled=true;
+
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    const dataUrl=e.target.result;
+    const base64=dataUrl.split(',')[1];
+    const mediaType=file.type||'image/jpeg';
+    try{
+      const res=await fetch('/.netlify/functions/recognize-food',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({image:base64,mediaType:mediaType})
+      });
+      const data=await res.json();
+      if(data.menuName){
+        if(inputEl) inputEl.value=data.menuName;
+        if(statusEl) statusEl.textContent='인식 완료. 확인 후 저장해 주세요.';
+      } else {
+        if(statusEl) statusEl.textContent='인식 실패: '+(data.error||'알 수 없는 오류');
+      }
+    } catch(err){
+      if(statusEl) statusEl.textContent='오류가 발생했습니다. 직접 입력해 주세요.';
+    } finally {
+      if(inputEl) inputEl.disabled=false;
+    }
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
 }
 
 function saveActual_(iso,type,idx){
@@ -416,11 +466,16 @@ function buildPastInputHTML(iso,type,idx){
       +'<div class="menu-name">'+saved+'</div>'
       +editBtn+'수정</button></div>';
   }
+  const inputId='input_'+iso+'_'+type;
+  const fileId='file_'+iso+'_'+type;
   return '<div class="card">'
     +'<div class="meal-label">'+label+'</div>'
     +'<div class="my-choice-row" style="margin-top:4px">'
-    +'<input class="my-choice-input" id="input_'+iso+'_'+type+'" type="text" placeholder="직접 입력">'
-    +saveBtn+'저장</button></div>';
+    +'<input class="my-choice-input" id="'+inputId+'" type="text" placeholder="직접 입력">'
+    +'<button class="btn-camera" onclick="document.getElementById(\''+fileId+'\').click()">📷</button>'
+    +'<input type="file" id="'+fileId+'" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event,\''+inputId+'\',\''+iso+'\',\''+type+'\')">'
+    +saveBtn+'저장</button></div>'
+    +'<div class="camera-status" id="status_'+inputId+'"></div></div>';
 }
 
 function buildSlideInner(idx){
